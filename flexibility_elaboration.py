@@ -11,7 +11,7 @@ def calc_similarity(clean_response, target, nlp):
     else:
         response_vec = nlp(clean_response.lower())
         target_vec = nlp(target)
-        return response_vec.similarit(target_vec) if np.count_nonzero(response_vec) != 0 else None
+        return response_vec.similarity(target_vec) if np.count_nonzero(response_vec) != 0 else None
 
 
 def bootstrap_similarity(word_counts, target):
@@ -57,7 +57,7 @@ def calc_flexibility_and_elaboration(responses, target_word, nlp):
 
 def calc_flexibility_and_elaboration_multi_target(responses, target_words, nlp):
     data = pd.DataFrame({'response': responses, 'target_word': target_words})
-    data['clean_response'] = [clean_text(response, nlp) for response in data.responses]
+    data['clean_response'] = [clean_text(response, nlp) for response in data.response]
     data['elaboration'] = data.apply(lambda row: len(row.clean_response.split()) if
                                      row.clean_response is not None else 0, axis=1)
     # to control for effects of response length (elaboration) on semantic similarity, calculate similarity expected by
