@@ -3,6 +3,8 @@ import pandas as pd
 import spacy
 import random
 from clean_text import clean_text
+import glob
+import pickle
 
 
 def calc_similarity(clean_response, target, nlp):
@@ -16,14 +18,25 @@ def calc_similarity(clean_response, target, nlp):
 
 def bootstrap_similarity(word_counts, target):
     nlp_smaller = spacy.load('en_core_web_md')
-    bootstrapped_sims = {}
+    # check if this word has been corrected before
+    boot_filename = 'bootstraps/' + target + '.pkl'
+    stored_bootstraps = glob.glob(boot_filename)
     print('correcting flexibility for word count...')
+    if len(stored_bootstraps) == 0:
+        bootstrapped_sims = {}
+    else:
+        print('Reading bootstrap data from file ' + stored_bootstraps[0])
+        boot_file = open(stored_bootstraps[0], 'rb')
+        bootstrapped_sims = pickle.load(boot_file)
+        boot_file.close()
     for sample_size in word_counts:
         sample_sims = []
-        print('bootstrapping at word count ' + str(sample_size))
         if sample_size == 0:
             bootstrapped_sims[sample_size] = 0
             continue
+        elif sample_size in bootstrapped_sims:
+            continue
+        print('bootstrapping at word count ' + str(sample_size))
         for i in list(range(0, 10000)):
             sampled_keys = random.sample(nlp_smaller.vocab.vectors.keys(), sample_size)
             while any([nlp_smaller.vocab[key].is_stop for key in sampled_keys]):
@@ -32,6 +45,10 @@ def bootstrap_similarity(word_counts, target):
             sim_to_target = nlp_smaller(sampled_text).similarity(nlp_smaller(target))
             sample_sims.append(sim_to_target)
         bootstrapped_sims[sample_size] = np.mean(sample_sims)
+    boot_file = open(boot_filename, 'wb')
+    pickle.dump(bootstrapped_sims, boot_file, -1)
+    boot_file.close()
+
     return bootstrapped_sims
 
 
@@ -46,7 +63,7 @@ def calc_flexibility_and_elaboration(responses, target_word, nlp):
     bootstrapped_sims = bootstrap_similarity(word_counts, target_word)
 
     target_vec = nlp(target_word)
-    data['raw_similarity'] = data.apply(lambda row: calc_similarity(row.clean_response, row.target_word, nlp),
+    data['raw_similarity'] = data.apply(lambda row: calc_similarity(row.clean_response, target_word, nlp),
                                         axis=1)
     data['corrected_similarity'] = data.apply(lambda row: row.raw_similarity - bootstrapped_sims[row.elaboration],
                                               axis=1)
