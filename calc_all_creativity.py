@@ -8,10 +8,27 @@ from originality import calc_originality
 
 
 def z_score(array):
+    """Convert array of numbers to Z scores"""
     return (array - np.nanmean(array)) / np.std(array)
 
 
 def mean_by_subject(by_subject_df, by_response_df, variable):
+    """Calculate the mean score by subject (variable 'ID' in both by_subject_df and by_response_df
+
+    Arguments
+    ---------
+    by_subject_df: pandas dataframe
+        output dataframe (one row per subject, column 'ID' has subject IDs)
+    by_response_df: pandas dataframe
+        input dataframe (one row per response, multiple responses per subject, column 'ID' has subject IDs)
+    variable: str
+        column name of data to average in by_response_df
+
+    Returns
+    -------
+    pandas series
+        new column to add to by_subject_df containing the mean of 'variable' by subject
+    """
     return by_subject_df.apply(
         lambda row:
             np.nanmean(by_response_df.loc[by_response_df.ID == row.ID, variable]),
@@ -19,7 +36,46 @@ def mean_by_subject(by_subject_df, by_response_df, variable):
     )
 
 
-def calc_all_creativity(data_by_response, target_word, nlp=None, output_prefix='', multi_target=False):
+def calc_all_creativity(data_by_response, target_word=None, nlp=None, output_prefix='', multi_target=False):
+    """ Calculate fluency, flexibility, elaboration, and originality. Then Z score and calculate creativity score
+
+    This function calls fluency.py, flexibility_elaboration.py, and originality.py to calculate the four
+    divergent thinking metrics. Flexibility, elaboration, and originality are calculated for each response, then
+    Z scored and averaged within each participant. Fluency is calculated for each participant and then Z scored.
+    Each participant's Z scored flexibility, elaboration, originality, and fluency are then averaged into a single
+    score (labeled 'creativity_score').
+
+    Arguments
+    ---------
+    data_by_response: pandas dataframe
+        dataframe as created by transform_data_by_response.py. One row per response with columns 'responseID', 'ID',
+        and 'response'. If multi_target is True, there should also be a 'target_word' column
+    target_word: str, optional
+        task's target word, used to calculate flexibility in flexibility_elaboration.py.
+        Should be string if multi_target is False, and list if multi_target is True
+    nlp: Spacy model, optional
+        output from spacy.load(). If not provided, will load 'en_vectors_web_lg'.
+    output_prefix: str, optional
+        prefix to use for column names in output. (default no prefix)
+    multi_target: bool, optional
+        True if responses use different target words, False if all responses use the same target word. (default False)
+
+    Returns
+    -------
+    {
+        results_by_subject: pandas dataframe
+            dataframe with one row per subject containing each subject's average z scored originality, flexibility,
+            and elaboration, raw and z-scored fluency, and creativity_score
+        results_by_response: pandas dataframe
+            dataframe with one row per response containing cleaned responses, and both raw and z scored originality,
+            flexibility, and originality
+    }
+    """
+    if (target_word is None) & (not multi_target):
+        raise TypeError(
+            "If the task has a single target word, provide a target_word argument. If there are multiple target words, "
+            + "set the multi_target argument to True and make sure data_by_response has a 'target_word' column")
+
     if nlp is None:
         nlp = spacy.load('en_vectors_web_lg')
     # make sure prefix ends in _
