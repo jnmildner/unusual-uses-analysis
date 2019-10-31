@@ -31,11 +31,13 @@ def bootstrap_similarity(word_counts, target):
         boot_file.close()
     for sample_size in word_counts:
         sample_sims = []
-        if sample_size == 0:
+        if (sample_size == 0) | (sample_size is None) | (np.isnan(sample_size)):
             bootstrapped_sims[sample_size] = 0
             continue
         elif sample_size in bootstrapped_sims:
             continue
+        else:
+            sample_size = sample_size.astype(int)
         print('bootstrapping at word count ' + str(sample_size))
         for i in list(range(0, 10000)):
             sampled_keys = random.sample(nlp_smaller.vocab.vectors.keys(), sample_size)
@@ -54,19 +56,21 @@ def bootstrap_similarity(word_counts, target):
 
 def calc_flexibility_and_elaboration(responses, target_word, nlp):
     data = pd.DataFrame({'clean_response': clean_text(response, nlp)} for response in responses)
-    data['elaboration'] = data.apply(lambda row: len(row.clean_response.split()) if
-                                     row.clean_response is not None else 0, axis=1)
+    data['elaboration'] = data.apply(lambda row: int(len(row.clean_response.split())) if
+                                     row.clean_response is not None else None, axis=1)
     # to control for effects of response length (elaboration) on semantic similarity, calculate similarity expected by
     # chance for all given response lengths to subtract from response similarity
     # (Forthmann et al, 2018 https://doi.org/10.1002/jocb.240)
     word_counts = data.elaboration.unique()
     bootstrapped_sims = bootstrap_similarity(word_counts, target_word)
 
-    target_vec = nlp(target_word)
     data['raw_similarity'] = data.apply(lambda row: calc_similarity(row.clean_response, target_word, nlp),
                                         axis=1)
-    data['corrected_similarity'] = data.apply(lambda row: row.raw_similarity - bootstrapped_sims[row.elaboration],
-                                              axis=1)
+    data['corrected_similarity'] = data.apply(
+        lambda row:
+            row.raw_similarity - bootstrapped_sims[row.elaboration] if not np.isnan(
+                row.elaboration) else row.raw_similarity,
+        axis=1)
     # flexibility is dissimilarity score, so invert the similarity score to get flexibility
     data['flexibility'] = (1 - abs(data['corrected_similarity']))
     return data[['clean_response', 'elaboration', 'flexibility']]
@@ -76,7 +80,7 @@ def calc_flexibility_and_elaboration_multi_target(responses, target_words, nlp):
     data = pd.DataFrame({'response': responses, 'target_word': target_words})
     data['clean_response'] = [clean_text(response, nlp) for response in data.response]
     data['elaboration'] = data.apply(lambda row: len(row.clean_response.split()) if
-                                     row.clean_response is not None else 0, axis=1)
+                                     row.clean_response is not None else None, axis=1)
     # to control for effects of response length (elaboration) on semantic similarity, calculate similarity expected by
     # chance for all given response lengths to subtract from response similarity
     # (Forthmann et al, 2018 https://doi.org/10.1002/jocb.240)
@@ -86,8 +90,10 @@ def calc_flexibility_and_elaboration_multi_target(responses, target_words, nlp):
 
     data['raw_similarity'] = data.apply(lambda row: calc_similarity(row.clean_response, row.target_word, nlp),
                                         axis=1)
-    data['corrected_similarity'] = data.apply(lambda row: row.raw_similarity - bootstrapped_sims[row.elaboration],
-                                              axis=1)
+    data['corrected_similarity'] = data.apply(
+        lambda row:
+            row.raw_similarity - bootstrapped_sims[row.elaboration] if not np.isnan(row.elaboration) else row.raw_similarity,
+        axis=1)
     # flexibility is dissimilarity score, so invert the similarity score to get flexibility
     data['flexibility'] = (1 - abs(data['corrected_similarity']))
     return data[['clean_response', 'elaboration', 'flexibility']]
