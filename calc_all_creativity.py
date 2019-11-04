@@ -78,7 +78,7 @@ def calc_all_creativity(data_by_response, target_word=None, nlp=None, output_pre
 
     if nlp is None:
         nlp = spacy.load('en_vectors_web_lg')
-    # make sure prefix ends in _
+    # make sure prefix ends in _ if there is one
     if not (output_prefix.endswith('_') | (output_prefix == '')):
         output_prefix = output_prefix + '_'
 
@@ -96,18 +96,23 @@ def calc_all_creativity(data_by_response, target_word=None, nlp=None, output_pre
     results_df['z_originality'] = z_score(results_df.originality)
 
     results_by_subject = pd.DataFrame({'ID': results_df.ID.unique()})
-    elab_out_name, flex_out_name, orig_out_name, raw_flue_out_name, flue_out_name, creativity_out_name = [
-        output_prefix + n for n in ['elaboration', 'flexibility', 'originality', 'raw_fluency', 'fluency',
+    elab_out_name, flex_out_name, orig_out_name, flue_out_name, creativity_out_name = [
+        output_prefix + n for n in ['elaboration', 'flexibility', 'originality', 'fluency',
                                     'creativity_score']]
-    results_by_subject[elab_out_name] = mean_by_subject(results_by_subject, results_df, 'z_elaboration')
-    results_by_subject[flex_out_name] = mean_by_subject(results_by_subject, results_df, 'z_flexibility')
-    results_by_subject[orig_out_name] = mean_by_subject(results_by_subject, results_df, 'z_originality')
+    results_by_subject[elab_out_name + '_z'] = mean_by_subject(results_by_subject, results_df, 'z_elaboration')
+    results_by_subject[elab_out_name + '_raw'] = mean_by_subject(results_by_subject, results_df, 'elaboration')
+    results_by_subject[flex_out_name + '_z'] = mean_by_subject(results_by_subject, results_df, 'z_flexibility')
+    results_by_subject[flex_out_name + '_raw'] = mean_by_subject(results_by_subject, results_df, 'flexibility')
+    results_by_subject[orig_out_name + '_z'] = mean_by_subject(results_by_subject, results_df, 'z_originality')
+    results_by_subject[orig_out_name + '_raw'] = mean_by_subject(results_by_subject, results_df, 'originality')
 
-    results_by_subject[raw_flue_out_name] = mean_by_subject(results_by_subject, results_df, 'fluency')
-    results_by_subject[flue_out_name] = z_score(results_by_subject[output_prefix + 'raw_fluency'])
+    results_by_subject[flue_out_name + '_raw'] = mean_by_subject(results_by_subject, results_df, 'fluency')
+    results_by_subject[flue_out_name + '_z'] = z_score(results_by_subject[flue_out_name + '_raw'])
 
-    results_by_subject[creativity_out_name] = results_by_subject[[elab_out_name, flex_out_name,
-                                                                  orig_out_name, flue_out_name]].mean(axis=1)
+    results_by_subject[creativity_out_name] = results_by_subject[[elab_out_name + '_z',
+                                                                  flex_out_name + '_z',
+                                                                  orig_out_name + '_z',
+                                                                  flue_out_name + '_z']].mean(axis=1)
 
     return {'results_by_subject': results_by_subject, 'results_by_response': results_df}
 
