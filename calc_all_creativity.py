@@ -77,20 +77,25 @@ def calc_all_creativity(data_by_response, target_word=None, nlp=None, output_pre
             + "set the multi_target argument to True and make sure data_by_response has a 'target_word' column")
 
     if nlp is None:
+        print('Loading spacy model: en_vectors_web_lg')
         nlp = spacy.load('en_vectors_web_lg')
     # make sure prefix ends in _ if there is one
     if not (output_prefix.endswith('_') | (output_prefix == '')):
         output_prefix = output_prefix + '_'
 
     results_df = pd.DataFrame({'responseID': data_by_response.responseID, 'ID': data_by_response.ID})
+    print('Calculating fluency using fluency.py')
     results_df['fluency'] = calc_fluency(data_by_response, nlp)
+    print('Calculating elaboration and flexibility using flexibility_elaboration.py')
     results_df[['clean_response', 'elaboration', 'flexibility']] = \
         calc_flexibility_and_elaboration(list(data_by_response.response), target_word, nlp) if not multi_target else \
         calc_flexibility_and_elaboration_multi_target(list(data_by_response.response),
                                                       list(data_by_response.target_word),
                                                       nlp)
+    print('Calculating originality using originality.py')
     results_df['originality'] = calc_originality(data_by_response.response)
 
+    print('Z-scoring and concatenating results')
     results_df['z_elaboration'] = z_score(results_df.elaboration)
     results_df['z_flexibility'] = z_score(results_df.flexibility)
     results_df['z_originality'] = z_score(results_df.originality)
@@ -113,6 +118,8 @@ def calc_all_creativity(data_by_response, target_word=None, nlp=None, output_pre
                                                                   flex_out_name + '_z',
                                                                   orig_out_name + '_z',
                                                                   flue_out_name + '_z']].mean(axis=1)
+
+    print('Done calculating all creativity metrics')
 
     return {'results_by_subject': results_by_subject, 'results_by_response': results_df}
 

@@ -6,6 +6,8 @@ from clean_text import clean_text
 import glob
 import pickle
 
+msg_prefix = '[FLEX] '
+
 
 def calc_similarity(clean_response, target, nlp):
     if clean_response is None:
@@ -21,11 +23,11 @@ def bootstrap_similarity(word_counts, target):
     # check if this word has been corrected before
     boot_filename = 'bootstraps/' + target + '.pkl'
     stored_bootstraps = glob.glob(boot_filename)
-    print('correcting flexibility for word count...')
+    print(msg_prefix + 'Correcting flexibility for word count...')
     if len(stored_bootstraps) == 0:
         bootstrapped_sims = {}
     else:
-        print('Reading bootstrap data from file ' + stored_bootstraps[0])
+        print(msg_prefix + 'Reading bootstrap data from file ' + stored_bootstraps[0])
         boot_file = open(stored_bootstraps[0], 'rb')
         bootstrapped_sims = pickle.load(boot_file)
         boot_file.close()
@@ -38,7 +40,7 @@ def bootstrap_similarity(word_counts, target):
             continue
         else:
             sample_size = sample_size.astype(int)
-        print('bootstrapping at word count ' + str(sample_size))
+        print(msg_prefix + 'Bootstrapping at word count ' + str(sample_size))
         for i in list(range(0, 10000)):
             sampled_keys = random.sample(nlp_smaller.vocab.vectors.keys(), sample_size)
             while any([nlp_smaller.vocab[key].is_stop for key in sampled_keys]):
