@@ -37,7 +37,8 @@ def parse_responses(text: str, default_delimiter='\n', force_default=False) -> l
     return responses
 
 
-def transform_data_by_response(raw_data, delimiter='/', id_column='ID', response_column='response'):
+def transform_data_by_response(raw_data, delimiter='/', id_column='ID',
+                               response_column='response'):
     subject_ids = raw_data[id_column]
     raw_data = raw_data.set_index(id_column, drop=False)
     responses_by_subject = {}
@@ -46,7 +47,8 @@ def transform_data_by_response(raw_data, delimiter='/', id_column='ID', response
         response = raw_data.at[subject, response_column]
         if not isinstance(response, str):
             continue
-        responses_by_subject[subject] = parse_responses(response, default_delimiter=delimiter)
+        responses_by_subject[subject] = parse_responses(response,
+                                                        default_delimiter=delimiter)
         nrow = len(responses_by_subject[subject])
         sub_df = pd.DataFrame(data={'ID': [subject] * nrow,
                                     'response_num': range(1, nrow + 1),
@@ -54,5 +56,6 @@ def transform_data_by_response(raw_data, delimiter='/', id_column='ID', response
         response_data = response_data.append(sub_df, ignore_index=True)
 
     response_data['responseID'] = np.random.choice(range(1, len(response_data) + 1),
-                                                   size=len(response_data), replace=False)
+                                                   size=len(response_data),
+                                                   replace=False)
     return response_data.set_index('responseID', drop=False)

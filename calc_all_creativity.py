@@ -119,7 +119,7 @@ def calc_all_creativity(data_by_response, target_word=None, nlp=None, output_pre
                                                                   orig_out_name + '_z',
                                                                   flue_out_name + '_z']].mean(axis=1)
 
-    print('Done calculating all creativity metrics')
+    print('Done calculating all creativity metrics\n')
 
     return {'results_by_subject': results_by_subject, 'results_by_response': results_df}
 

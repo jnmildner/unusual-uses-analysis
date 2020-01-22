@@ -9,6 +9,7 @@ verify_ssl = true
 sklearn = "*"
 pandas = "*"
 spacy = "*"
+jupyter = "*"
 
 [requires]
 python_version = "3.7"

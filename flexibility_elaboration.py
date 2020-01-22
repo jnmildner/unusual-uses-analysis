@@ -10,6 +10,18 @@ msg_prefix = '[FLEX] '
 
 
 def calc_similarity(clean_response, target, nlp):
+    """Calculate the similarity between response and target using Spacy
+
+    Arguments
+    ---------
+    clean_response: string
+    target: string
+    nlp: Spacy model
+
+    Returns
+    -------
+    similarity
+    """
     if clean_response is None:
         return None
     else:
@@ -19,11 +31,29 @@ def calc_similarity(clean_response, target, nlp):
 
 
 def bootstrap_similarity(word_counts, target):
+    """Calculate the average similarity for random words of each response length.
+
+    Longer responses have higher similarity. To control for this, draw random words 10,000 times for each response
+    length. Calculate the average similarity for each response length. To save time, store bootstrap data for each
+    target word in a pickle.
+
+    Arguments
+    ---------
+    word_counts: list
+        List of unique elaboration scores
+    target: string
+        Target word
+
+    Returns
+    -------
+    bootstrapped similarities: object
+        keys for each word count with values for average similarity for that response length
+    """
     nlp_smaller = spacy.load('en_core_web_md')
     # check if this word has been corrected before
     boot_filename = 'bootstraps/' + target + '.pkl'
     stored_bootstraps = glob.glob(boot_filename)
-    print(msg_prefix + 'Correcting flexibility for word count...')
+    print(msg_prefix + 'Correcting flexibility for word count for target word: ' + target)
     if len(stored_bootstraps) == 0:
         bootstrapped_sims = {}
     else:
@@ -57,6 +87,18 @@ def bootstrap_similarity(word_counts, target):
 
 
 def calc_flexibility_and_elaboration(responses, target_word, nlp):
+    """Calculate flexibility (spacy similarity corrected for chance similarity) and elaboration (number of words).
+
+    Arguments
+    ---------
+        responses: list
+        target_word: string
+        nlp: Spacy model
+
+    Returns
+    -------
+        pandas dataframe with 3 columns: clean_response, elaboration, flexibility
+    """
     data = pd.DataFrame({'clean_response': clean_text(response, nlp)} for response in responses)
     data['elaboration'] = data.apply(lambda row: int(len(row.clean_response.split())) if
                                      row.clean_response is not None else None, axis=1)
@@ -79,6 +121,7 @@ def calc_flexibility_and_elaboration(responses, target_word, nlp):
 
 
 def calc_flexibility_and_elaboration_multi_target(responses, target_words, nlp):
+    """"""
     data = pd.DataFrame({'response': responses, 'target_word': target_words})
     data['clean_response'] = [clean_text(response, nlp) for response in data.response]
     data['elaboration'] = data.apply(lambda row: len(row.clean_response.split()) if
@@ -86,15 +129,17 @@ def calc_flexibility_and_elaboration_multi_target(responses, target_words, nlp):
     # to control for effects of response length (elaboration) on semantic similarity, calculate similarity expected by
     # chance for all given response lengths to subtract from response similarity
     # (Forthmann et al, 2018 https://doi.org/10.1002/jocb.240)
-    most_common_target = list(data.target_word.mode())[0]
-    word_counts = data.elaboration.unique()
-    bootstrapped_sims = bootstrap_similarity(word_counts, most_common_target)
+    bootstrapped_sims = {}
+    for target in data.target_word.unique():
+        word_counts = data.elaboration.loc[data.target_word == target].unique()
+        bootstrapped_sims[target] = bootstrap_similarity(word_counts, target)
 
     data['raw_similarity'] = data.apply(lambda row: calc_similarity(row.clean_response, row.target_word, nlp),
                                         axis=1)
     data['corrected_similarity'] = data.apply(
         lambda row:
-            row.raw_similarity - bootstrapped_sims[row.elaboration] if not np.isnan(row.elaboration) else row.raw_similarity,
+            row.raw_similarity - bootstrapped_sims[row.target_word][row.elaboration] if not
+            np.isnan(row.elaboration) else row.raw_similarity,
         axis=1)
     # flexibility is dissimilarity score, so invert the similarity score to get flexibility
     data['flexibility'] = (1 - abs(data['corrected_similarity']))
