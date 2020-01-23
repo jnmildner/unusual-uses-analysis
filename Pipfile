@@ -10,6 +10,7 @@ sklearn = "*"
 pandas = "*"
 spacy = "*"
 jupyter = "*"
+colorama = "*"
 
 [requires]
 python_version = "3.7"
