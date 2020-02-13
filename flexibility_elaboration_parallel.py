@@ -60,7 +60,8 @@ def bootstrap_similarity(word_counts, target):
     bootstrapped similarities: object
         keys for each word count with values for average similarity for that response length
     """
-    nlp_smaller = spacy.load('en_core_web_md')
+    #nlp_smaller = spacy.load('en_core_web_md')
+    nlp_smaller = en_core_web_md.load()
     # check if this word has been corrected before
     boot_filename = 'bootstraps/' + target + '.pkl'
     stored_bootstraps = glob.glob(boot_filename)
@@ -94,10 +95,9 @@ def bootstrap_similarity(word_counts, target):
                 chunksize=50
             )]
         bootstrapped_sims[sample_size] = np.mean(sample_sims)
-    #boot_file = open(boot_filename, 'wb')
-    #pickle.dump(bootstrapped_sims, boot_file, -1)
-    #boot_file.close()
-
+    boot_file = open(boot_filename, 'wb')
+    pickle.dump(bootstrapped_sims, boot_file, -1)
+    boot_file.close()
     return bootstrapped_sims
 
 
@@ -122,7 +122,6 @@ def calc_flexibility_and_elaboration(responses, target_word, nlp):
     # (Forthmann et al, 2018 https://doi.org/10.1002/jocb.240)
     word_counts = data.elaboration.unique()
     bootstrapped_sims = bootstrap_similarity(word_counts, target_word)
-
     data['raw_similarity'] = data.apply(lambda row: calc_similarity(row.clean_response, target_word, nlp),
                                         axis=1)
     data['corrected_similarity'] = data.apply(
