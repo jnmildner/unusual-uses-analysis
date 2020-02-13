@@ -136,7 +136,6 @@ def calc_flexibility_and_elaboration(responses, target_word, nlp):
 
 
 def calc_flexibility_and_elaboration_multi_target(responses, target_words, nlp):
-    """"""
     data = pd.DataFrame({'response': responses, 'target_word': target_words})
     data['clean_response'] = [clean_text(response, nlp) for response in data.response]
     data['elaboration'] = data.apply(lambda row: len(row.clean_response.split()) if
@@ -159,3 +158,31 @@ def calc_flexibility_and_elaboration_multi_target(responses, target_words, nlp):
     # flexibility is dissimilarity score, so invert the similarity score to get flexibility
     data['flexibility'] = (1 - abs(data['corrected_similarity']))
     return data[['clean_response', 'elaboration', 'flexibility']]
+
+
+def calc_flexibility_and_elaboration_two_target(responses, target_words, nlp):
+    """version of calc_flexibility_and_elaboration_multi_target for tasks that
+    use two target words at once (i.e each trial has a set of two target words).
+
+    Arguments:
+    ----------
+        responses: list
+        target_words: list of lists
+        nlp: Spacy model
+    """
+    data = pd.DataFrame({'response': responses, 'target_words': target_words})
+    data['clean_response'] = [clean_text(response, nlp) for response in data.response]
+    data['elaboration'] = data.apply(lambda row: len(row.clean_response.split()) if
+                                     row.clean_response is not None else None, axis=1)
+    # flatten list of target words (from list of lists to single list)
+    all_target_words = [item for sublist in data.target_words for item in sublist]
+    bootstrapped_sims = {}
+    for target in set(all_target_words):
+        word_counts = data.elaboration.loc[
+            data.target_words.apply(lambda x: target in x)
+        ].unique()
+        bootstrapped_sims[target] = bootstrap_similarity(word_counts, target)
+
+
+
+
