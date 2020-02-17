@@ -87,7 +87,8 @@ def bootstrap_similarity(word_counts, target):
 
 
 def calc_flexibility_and_elaboration(responses, target_word, nlp):
-    """Calculate flexibility (spacy similarity corrected for chance similarity) and elaboration (number of words).
+    """Calculate flexibility (spacy similarity corrected for chance similarity) and
+    elaboration (number of words).
 
     Arguments
     ---------
@@ -101,7 +102,7 @@ def calc_flexibility_and_elaboration(responses, target_word, nlp):
     """
     data = pd.DataFrame({'clean_response': clean_text(response, nlp)} for response in responses)
     data['elaboration'] = data.apply(lambda row: int(len(row.clean_response.split())) if
-                                     row.clean_response is not None else None, axis=1)
+    row.clean_response is not None else None, axis=1)
     # to control for effects of response length (elaboration) on semantic similarity, calculate similarity expected by
     # chance for all given response lengths to subtract from response similarity
     # (Forthmann et al, 2018 https://doi.org/10.1002/jocb.240)
@@ -112,8 +113,8 @@ def calc_flexibility_and_elaboration(responses, target_word, nlp):
                                         axis=1)
     data['corrected_similarity'] = data.apply(
         lambda row:
-            row.raw_similarity - bootstrapped_sims[row.elaboration] if not np.isnan(
-                row.elaboration) else row.raw_similarity,
+        row.raw_similarity - bootstrapped_sims[row.elaboration] if not np.isnan(
+            row.elaboration) else row.raw_similarity,
         axis=1)
     # flexibility is dissimilarity score, so invert the similarity score to get flexibility
     data['flexibility'] = (1 - abs(data['corrected_similarity']))
@@ -125,7 +126,7 @@ def calc_flexibility_and_elaboration_multi_target(responses, target_words, nlp):
     data = pd.DataFrame({'response': responses, 'target_word': target_words})
     data['clean_response'] = [clean_text(response, nlp) for response in data.response]
     data['elaboration'] = data.apply(lambda row: len(row.clean_response.split()) if
-                                     row.clean_response is not None else None, axis=1)
+    row.clean_response is not None else None, axis=1)
     # to control for effects of response length (elaboration) on semantic similarity, calculate similarity expected by
     # chance for all given response lengths to subtract from response similarity
     # (Forthmann et al, 2018 https://doi.org/10.1002/jocb.240)
@@ -138,9 +139,57 @@ def calc_flexibility_and_elaboration_multi_target(responses, target_words, nlp):
                                         axis=1)
     data['corrected_similarity'] = data.apply(
         lambda row:
-            row.raw_similarity - bootstrapped_sims[row.target_word][row.elaboration] if not
-            np.isnan(row.elaboration) else row.raw_similarity,
+        row.raw_similarity - bootstrapped_sims[row.target_word][row.elaboration] if not
+        np.isnan(row.elaboration) else row.raw_similarity,
         axis=1)
     # flexibility is dissimilarity score, so invert the similarity score to get flexibility
     data['flexibility'] = (1 - abs(data['corrected_similarity']))
     return data[['clean_response', 'elaboration', 'flexibility']]
+
+
+def calc_flexibility_and_elaboration_two_target(responses, target_words, nlp):
+    """version of calc_flexibility_and_elaboration_multi_target for tasks that
+    use two target words at once (i.e each trial has a set of two target words).
+
+    Arguments:
+    ----------
+        responses: list
+        target_words: list of lists
+        nlp: Spacy model
+    """
+    data = pd.DataFrame({'response': responses, 'target_words': target_words})
+    data['clean_response'] = [clean_text(response, nlp) for response in data.response]
+    data['elaboration'] = data.apply(lambda row: len(row.clean_response.split()) if
+    row.clean_response is not None else None, axis=1)
+    # flatten list of target words (from list of lists to single list)
+    all_target_words = [item for sublist in data.target_words for item in sublist]
+    bootstrapped_sims = {}
+    for target in set(all_target_words):
+        word_counts = data.elaboration.loc[
+            data.target_words.apply(lambda x: target in x)
+        ].unique()
+        bootstrapped_sims[target] = bootstrap_similarity(word_counts, target)
+
+    data['raw_similarity1'] = data.apply(
+        lambda row: calc_similarity(row.clean_response, row.target_words[0], nlp),
+        axis=1)
+    data['raw_similarity2'] = data.apply(
+        lambda row: calc_similarity(row.clean_response, row.target_words[1], nlp),
+        axis=1)
+    data['corrected_similarity1'] = data.apply(
+        lambda row:
+        row.raw_similarity1 - bootstrapped_sims[row.target_words[0]][row.elaboration] if not
+        np.isnan(row.elaboration) else row.raw_similarity1,
+        axis=1)
+    data['corrected_similarity2'] = data.apply(
+        lambda row:
+        row.raw_similarity2 - bootstrapped_sims[row.target_words[1]][row.elaboration] if not
+        np.isnan(row.elaboration) else row.raw_similarity2,
+        axis=1)
+    data['highest_similarity'] = data.apply(
+        lambda row: max(abs(row.corrected_similarity1), abs(row.corrected_similarity2)),
+        axis=1
+    )
+    data['flexibility'] = (1 - abs(data['highest_similarity']))
+    return data[['clean_response', 'elaboration', 'flexibility']]
+
